@@ -4,7 +4,6 @@ Projeto da disciplina de Front-End baseado no MVP **Poké Tower** desenvolvido p
 
 ## Integrantes do grupo
 
-> **Antes de publicar, preencher com os nomes completos e RMs oficiais do grupo:**
 > - `[Rickelmy Omine] — RM [563286]`
 > - `[Davi Barboza] — RM [562370]`
 
