@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POKÉ TOWER PROTOCOL - IA Adaptativa & RPG System</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #09090b; --panel: #1e293b; --line: #334155; --ink: #f8fafc; --dim: #94a3b8;
+    --electric: #facc15; --ok: #10b981; --bad: #ef4444; --boss: #fbbf24;
+    --rotom-red: #ef4444; --rotom-dark: #b91c1c; --rotom-eye: #67e8f9;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  
+  body, button, input { font-family: 'Press Start 2P', monospace; text-transform: uppercase; }
+
+  body { 
+    margin: 0; background: radial-gradient(circle at 50% 50%, #fef08a, #f97316) fixed;
+    display: flex; justify-content: center; padding: 15px; min-height: 100vh;
+  }
+  
+  .rotom-shell {
+    width: 100%; max-width: 900px;
+    background: linear-gradient(145deg, var(--rotom-red), var(--rotom-dark));
+    border: 8px solid #7f1d1d; border-radius: 20px; 
+    padding: 15px 20px 20px 20px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6), inset 0 8px 0 #f87171, inset 0 -8px 0 #991b1b;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .rotom-face { display: flex; justify-content: center; gap: 60px; padding: 5px 0; }
+  .rotom-eye {
+    width: 35px; height: 35px; background: var(--rotom-eye);
+    border-radius: 5px; border: 4px solid #0f172a; 
+    box-shadow: 0 0 20px var(--rotom-eye);
+    position: relative; animation: blink 4s infinite;
+  }
+  @keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(0.2); } }
+
+  .rotom-screen {
+    --arena-grid: rgba(148, 163, 184, 0.4);
+    background-color: #020617; background-size: cover; background-position: center; background-repeat: no-repeat;
+    border: 6px solid #020617; border-radius: 8px; 
+    padding: 15px; color: var(--ink);
+    box-shadow: inset 0 0 50px rgba(0,0,0,1);
+    position: relative; overflow: hidden; z-index: 1;
+    image-rendering: pixelated; transition: background-image 0.5s ease-in-out;
+  }
+
+  .rotom-screen::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to bottom, rgba(2,6,23,0.3) 0%, rgba(2,6,23,0.95) 100%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px); 
+    z-index: -3; pointer-events: none;
+  }
+
+  .ar-grid {
+    position: absolute; top: 40%; left: -50%; right: -50%; bottom: -50%;
+    background: repeating-linear-gradient(0deg, transparent, transparent 20px, var(--arena-grid) 20px, var(--arena-grid) 24px),
+                repeating-linear-gradient(90deg, transparent, transparent 20px, var(--arena-grid) 20px, var(--arena-grid) 24px);
+    z-index: -2; transform: perspective(400px) rotateX(60deg); transform-origin: top center;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 40%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 40%);
+  }
+
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 4px solid rgba(255,255,255,0.2); padding-bottom: 10px; position: relative; z-index: 10;}
+  h1 { margin: 0; font-size: 12px; color: #fff; text-shadow: 2px 2px 0 var(--rotom-eye); }
+  .floor-tag { color: var(--electric); font-size: 10px; text-shadow: 2px 2px 0 #000; }
+  .money-tag { color: var(--ok); font-size: 10px; text-shadow: 2px 2px 0 #000;}
+  
+  .card { position: relative; z-index: 10; background: rgba(15, 23, 42, 0.85); border: 4px solid var(--line); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+  .card h2 { margin: 0 0 12px; font-size: 9px; color: var(--dim); }
+
+  @keyframes dash-right { 0% { transform: translateX(0) scale(1); } 40% { transform: translateX(40px) scale(1.1); } 100% { transform: translateX(0) scale(1); } }
+  @keyframes dash-left { 0% { transform: translateX(0) scale(1); } 40% { transform: translateX(-40px) scale(1.1); } 100% { transform: translateX(0) scale(1); } }
+  @keyframes hit-shake { 0%, 100% { transform: translateX(0); filter: brightness(1) sepia(0); } 20% { transform: translateX(-10px); filter: brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5); } 40%, 80% { transform: translateX(10px); } 60% { transform: translateX(-10px); } }
+  @keyframes faint { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(30px); opacity: 0; filter: grayscale(1); } }
+
+  .anim-atk-p { animation: dash-right 0.3s ease-in-out; } .anim-atk-e { animation: dash-left 0.3s ease-in-out; }
+  .anim-hit { animation: hit-shake 0.3s ease-in-out; } .anim-faint { animation: faint 0.6s forwards; }
+
+  .arena { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: end; margin-bottom: 10px;}
+  .mon { padding: 10px; border-radius: 4px; border: 4px solid transparent; position: relative; text-align: center; }
+  .mon-base { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); width: 120px; height: 30px; background: rgba(0,0,0,0.7); border-radius: 50%; z-index: -1; box-shadow: 0 0 15px rgba(0,0,0,0.9); }
+  
+  .sprite-container { height: 120px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 10px; position: relative; }
+  .sprite-container img { image-rendering: pixelated; width: 120px; height: 120px; transform: scale(1.3); object-fit: contain; filter: drop-shadow(0 15px 10px rgba(0,0,0,0.6)); }
+  .boss-icon { position: absolute; top: -20px; left: 10px; font-size: 16px; filter: drop-shadow(2px 2px 0 #000); z-index: 2;}
+  
+  .mon-info { text-align: left; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 4px; border: 2px solid #fff; }
+  .mon-name { font-size: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  
+  /* BADGES E STATUS EFEITOS */
+  .badge-container { display: flex; gap: 4px; }
+  .type-badge { font-size: 7px; padding: 4px 6px; border-radius: 2px; color: #fff; }
+  .status-badge { font-size: 7px; padding: 4px 6px; border-radius: 2px; color: #fff; font-weight: bold; border: 1px solid #fff;}
+  .status-BURN { background: #ef4444; } .status-PAR { background: #eab308; color: #000; } 
+  .status-SLP { background: #94a3b8; } .status-PSN { background: #a855f7; }
+
+  .hp-bar-bg { width: 100%; height: 8px; background: #0f172a; border: 2px solid #fff; margin-bottom: 4px;}
+  .hp-bar-fill { height: 100%; background: var(--ok); transition: width 0.3s ease; }
+  .hp-text { font-size: 8px; display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .exp-bar-bg { width: 100%; height: 4px; background: #0f172a; }
+  .exp-bar-fill { height: 100%; background: var(--rotom-eye); transition: width 0.3s; }
+
+  .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .move-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button { font-size: 9px; padding: 12px; border-radius: 4px; cursor: pointer; background: #0f172a; color: #fff; border: 4px solid var(--line); transition: 0.2s; line-height: 1.4; }
+  button:hover:not(:disabled) { background: #334155; transform: translateY(-2px); border-color: var(--rotom-eye); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--line); }
+  .btn-swap { background: #020617; border: 2px solid var(--dim); padding: 8px 12px; font-size: 8px; }
+  .move-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border-width: 4px; }
+
+  .log-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.9); border: 4px solid var(--line); border-radius: 4px; padding: 10px; font-size: 8px; line-height: 1.8; color: #cbd5e1; }
+  .log-box div { margin-bottom: 4px; border-bottom: 2px dashed rgba(51, 65, 85, 0.5); padding-bottom: 4px; }
+  .log-crit { color: var(--electric); font-weight: bold; }
+  .log-heal { color: var(--ok); font-weight: bold; }
+  .log-dmg { color: var(--bad); }
+
+  /* MODAL DE NOVO GOLPE: fica acima da arena e não é cortado pelo overflow do Rotom */
+  #screen-learn {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: min(720px, 90vw);
+    max-height: 82vh;
+    box-sizing: border-box;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: rgba(2, 6, 23, 0.98);
+    border: 5px solid var(--electric);
+    border-radius: 10px;
+    padding: 18px;
+    overflow-y: auto;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.58), 0 0 35px rgba(103,232,249,0.45);
+    animation: learnModalIn 0.18s ease-out;
+  }
+  #screen-learn.active { display: block; }
+  #screen-learn h2 { font-size: 14px; margin-bottom: 14px; }
+  #screen-learn #learn-msg { font-size: 10px !important; margin: 0 auto 16px; max-width: 620px; }
+  #screen-learn #learn-moves-grid { gap: 10px; margin-bottom: 14px !important; }
+  #screen-learn .move-btn { min-height: 58px; font-size: 9px !important; }
+  #screen-learn > button { min-height: 42px; }
+  @keyframes learnModalIn {
+    from { opacity: 0; transform: translate(-50%, -47%) scale(0.97); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  
+  .bag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 200px; overflow-y: auto; }
+  .item-card { background: #0f172a; border: 2px solid var(--line); padding: 10px; border-radius: 4px; text-align: left; cursor: pointer; }
+  .item-card:hover { border-color: var(--electric); }
+  .item-name { font-size: 9px; color: var(--electric); margin-bottom: 4px; }
+  .item-desc { font-size: 7px; color: var(--dim); line-height: 1.4;}
+
+  .party-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+  .pc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 200px; overflow-y: auto; background:rgba(0,0,0,0.8); padding:10px; border: 4px solid rgba(255,255,255,0.2);}
+  .party-slot { background: rgba(15, 23, 42, 0.9); border: 4px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 8px; text-align: center; cursor: pointer; }
+  .party-slot:hover { border-color: var(--rotom-eye); }
+  .party-slot.active { border-color: var(--ok); background: rgba(16, 185, 129, 0.2); }
+  .party-slot.selected { border-color: var(--rotom-eye); background: rgba(103, 232, 249, 0.2); }
+  .party-slot.dead { opacity: 0.4; border-color: var(--bad); }
+  .party-slot img { width: 50px; height: 50px; image-rendering: pixelated; margin-bottom: 4px; transform: scale(1.2); }
+  .party-slot .p-name { font-size: 7px; margin-bottom: 4px; }
+
+  .draft-grid { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+  .draft-card { flex: 1; background: rgba(0,0,0,0.8); border: 4px solid rgba(255,255,255,0.2); padding: 15px 5px; text-align: center; cursor: pointer; }
+  .draft-card:hover { transform: translateY(-5px); border-color: var(--rotom-eye); }
+  .draft-card img { width: 70px; height: 70px; image-rendering: pixelated; transform: scale(1.5); margin-bottom: 10px;}
+
+  .screen { display: none; animation: fadeIn 0.3s; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .center-text { text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="rotom-shell">
+  <div class="rotom-face">
+    <div class="rotom-eye"></div><div class="rotom-eye"></div>
+  </div>
+
+  <div class="rotom-screen" id="rotom-screen-main">
+    <div class="ar-grid"></div>
+
+    <header>
+      <h1>ROTOM DEX AR</h1>
+      <div style="text-align:right;">
+        <div class="floor-tag" id="ui-floor">ANDAR 1/25</div>
+        <div class="floor-tag" id="ui-generation">GERAÇÃO 1 · KANTO</div>
+        <div class="money-tag" id="ui-money">💰 $0</div>
+      </div>
+    </header>
+
+    <!-- ESCOLHA DO MODO -->
+    <div id="screen-mode" class="screen active card center-text">
+      <h2>PROTOCOLO DE TORRE</h2>
+      <p style="font-size:9px; line-height:1.7; margin-bottom:18px;">Escolha como deseja explorar os 25 andares.</p>
+      <div class="draft-grid" style="margin-bottom:15px;">
+        <button class="draft-card" style="border-color:var(--electric)" onclick="selectGameMode('story')">
+          <div style="font-size:11px; margin:15px 0;">🏰 HISTÓRIA</div>
+          <div style="font-size:7px; color:var(--dim);">9 gerações · 25 andares por geração</div>
+        </button>
+        <button class="draft-card" style="border-color:var(--rotom-eye)" onclick="selectGameMode('infinite')">
+          <div style="font-size:11px; margin:15px 0;">♾️ INFINITO</div>
+          <div style="font-size:7px; color:var(--dim);">25 andares por ciclo · gerações sem fim</div>
+        </button>
+      </div>
+      <button style="width:100%; font-size:9px;" onclick="showHistory()">VER HISTÓRICO</button>
+    </div>
+
+    <!-- ESCOLHA DO INICIAL -->
+    <div id="screen-start" class="screen card center-text">
+      <h2>ESCOLHA SEU INICIAL</h2>
+      <p id="mode-description" style="font-size:8px; line-height:1.6; margin-bottom:20px; color:var(--dim);">HISTÓRIA · GERAÇÃO 1 · KANTO · 25 ANDARES</p>
+      <div class="draft-grid" style="margin-bottom:20px;">
+        <button class="draft-card" data-starter="Bulbasaur" style="border-color:#22c55e" onclick="chooseStarter('Bulbasaur')" type="button"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png"><div style="font-size:8px; margin-top:5px;">Bulbasaur</div></button>
+        <button class="draft-card" data-starter="Charmander" style="border-color:#ef4444" onclick="chooseStarter('Charmander')" type="button"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"><div style="font-size:8px; margin-top:5px;">Charmander</div></button>
+        <button class="draft-card" data-starter="Squirtle" style="border-color:#3b82f6" onclick="chooseStarter('Squirtle')" type="button"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png"><div style="font-size:8px; margin-top:5px;">Squirtle</div></button>
+      </div>
+      <button style="width:100%; font-size:9px;" onclick="showScreen('screen-mode')">VOLTAR AO MODO</button>
+    </div>
+
+    <!-- TRANSIÇÃO DE GERAÇÃO -->
+    <div id="screen-generation" class="screen card center-text">
+      <h2 style="color:var(--electric);">NOVA GERAÇÃO DESBLOQUEADA!</h2>
+      <p id="generation-message" style="font-size:9px; line-height:1.8;"></p>
+      <div id="generation-cycle" style="font-size:8px; color:var(--dim); margin:15px 0;"></div>
+      <button style="width:100%; font-size:10px;" onclick="continueGeneration()">ENTRAR NA NOVA GERAÇÃO</button>
+    </div>
+
+    <!-- TELA DE HISTÓRICO -->
+    <div id="screen-history" class="screen card center-text">
+      <h2>Memória do Dex</h2>
+      <div id="history-list" style="text-align:left; margin-bottom:20px; font-size:8px; line-height:1.6; color:var(--dim);"></div>
+      <button style="width:100%; font-size:9px;" onclick="runTests()">EXECUTAR TESTES DO MVP</button>
+      <div id="test-results" style="text-align:left; margin-top:10px; font-size:7px; line-height:1.8;"></div>
+      <button style="width:100%; font-size:9px; margin-top:10px;" onclick="showScreen('screen-start')">VOLTAR</button>
+    </div>
+
+    <!-- TELA DE BATALHA -->
+    <div id="screen-battle" class="screen">
+      <div class="arena">
+        <div class="mon player">
+          <div class="mon-base"></div>
+          <div class="sprite-container"><img id="p-sprite" src=""></div>
+          <div class="mon-info">
+            <div class="mon-name">
+              <span id="p-name">Nome</span>
+              <div class="badge-container">
+                <span id="p-status" class="status-badge" hidden></span>
+                <span id="p-type" class="type-badge">TIPO</span>
+              </div>
+            </div>
+            <div class="hp-text"><span id="p-lv">Nv 1</span><span id="p-hp-text">0/0</span></div>
+            <div class="hp-bar-bg"><div id="p-hp-bar" class="hp-bar-fill"></div></div>
+            <div class="exp-bar-bg"><div id="p-exp-bar" class="exp-bar-fill"></div></div>
+          </div>
+        </div>
+        
+        <div class="mon enemy" id="e-container">
+          <div class="mon-base"></div>
+          <div id="boss-icon" class="boss-icon" hidden>👑</div>
+          <div class="sprite-container"><img id="e-sprite" src=""></div>
+          <div class="mon-info">
+            <div class="mon-name">
+              <span id="e-name">Inimigo</span>
+              <div class="badge-container">
+                <span id="e-status" class="status-badge" hidden></span>
+                <span id="e-type" class="type-badge">TIPO</span>
+              </div>
+            </div>
+            <div class="hp-text"><span id="e-lv">Nv 1</span><span id="e-hp-text">0/0</span></div>
+            <div class="hp-bar-bg"><div id="e-hp-bar" class="hp-bar-fill" style="background:var(--bad)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="ai-panel" style="margin-top:10px; border-color:var(--rotom-eye); background:rgba(8,47,73,0.55);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <h2 style="color:var(--rotom-eye); margin:0;">🤖 ROTOM-A1 · IA GENERATIVA</h2>
+          <span id="ai-status" style="font-size:7px; color:var(--dim);">AGUARDANDO ANÁLISE</span>
+        </div>
+        <div id="ai-advice" style="font-size:8px; line-height:1.7; margin-top:8px; color:#fff;">A IA analisará o estado da batalha ao iniciar cada andar.</div>
+        <button class="btn-swap" style="margin-top:8px; border-color:var(--rotom-eye);" onclick="getAdaptiveAdvice(true)">↻ ANALISAR NOVAMENTE</button>
+      </div>
+
+      <div class="card" id="battle-controls" style="margin-top:10px;">
+        <div class="controls-header">
+          <h2>COMANDOS</h2>
+          <div>
+            <button class="btn-swap" onclick="togglePartyMenu('battle')">🔄 EQUIPE</button>
+            <button class="btn-swap" style="border-color:var(--electric)" onclick="openBag('battle')">🎒 MOCHILA</button>
+          </div>
+        </div>
+        <div id="move-controls" class="move-grid"></div>
+      </div>
+
+      <div class="card" id="party-menu" hidden>
+        <h2 id="party-menu-title">Sua Equipe</h2>
+        <div class="party-grid" id="ui-party"></div>
+        <button style="width:100%; margin-top:10px; font-size:9px;" id="btn-cancel-party" onclick="togglePartyMenu('battle')">CANCELAR</button>
+      </div>
+
+      <div class="card" style="margin-bottom:0; padding:10px;">
+        <div class="log-box" id="log-box"></div>
+      </div>
+    </div>
+
+    <!-- MOCHILA -->
+    <div id="screen-bag" class="screen card center-text">
+      <h2 style="color:var(--electric); font-size:12px;">🎒 MOCHILA</h2>
+      <div id="bag-items" class="bag-grid"></div>
+      <button style="width:100%; margin-top:15px; font-size:9px;" onclick="closeBag()">FECHAR MOCHILA</button>
+    </div>
+
+    <!-- APRENDER NOVO GOLPE -->
+    <div id="screen-learn" class="screen card center-text">
+      <h2 style="color:var(--electric); font-size:12px;">NOVO ATAQUE!</h2>
+      <p id="learn-msg" style="font-size:8px; line-height:1.6; color:#fff; margin-bottom:15px;"></p>
+      <div id="learn-moves-grid" class="move-grid" style="margin-bottom:15px;"></div>
+      <button style="width:100%; background:var(--bad); font-size:9px;" onclick="skipLearnMove()">NÃO APRENDER NADA</button>
+    </div>
+
+    <!-- RECOMPENSA -->
+    <div id="screen-reward" class="screen card center-text">
+      <h2 style="color:var(--ok); font-size:14px;">VITÓRIA!</h2>
+      <p style="font-size:9px; line-height:1.6;">Equipe recuperou 30% do HP. Ganhou <b>$ <span id="reward-money"></span></b>!</p>
+      <p id="reward-drop" style="font-size:10px; color:var(--electric); font-weight:bold;"></p>
+      <div id="draft-section">
+        <p style="color:var(--rotom-eye); font-size:9px; font-weight:bold;">Sinal detectado! Escolha um aliado:</p>
+        <div class="draft-grid" id="draft-options"></div>
+      </div>
+      <button id="btn-next-floor" style="width:100%; margin-top:20px; background:var(--ok); color:#000; font-size:10px;" onclick="nextFloor()">AVANÇAR NA TORRE</button>
+    </div>
+
+    <!-- CAPTURA CHEFE -->
+    <div id="screen-boss-capture" class="screen card center-text">
+      <h2 style="color:var(--boss); font-size:16px;">CHEFE DERROTADO!</h2>
+      <p style="font-size:9px; line-height:1.6;">Uma Lenda caiu! <b style="color:#eab308">50% de chance</b> de capturar com a Master Ball AR.</p>
+      <p id="boss-drop" style="font-size:10px; color:var(--electric); font-weight:bold;"></p>
+      <img id="boss-sprite-cap" src="" style="width:100px; image-rendering:pixelated; margin: 10px 0; filter: drop-shadow(0 0 10px #eab308);">
+      <div id="boss-cap-result" style="font-size:10px; font-weight:bold; margin-bottom:15px; height: 20px;"></div>
+      <div class="move-grid" id="boss-btn-group">
+        <button style="background:#eab308; color:#000; border-color:#ca8a04; font-size:8px;" onclick="attemptCapture()">LANCAR BALL (50%)</button>
+        <button style="font-size:8px;" onclick="skipCapture()">IGNORAR</button>
+      </div>
+      <button id="btn-boss-next" style="width:100%; background:var(--ok); color:#000; display:none; font-size:10px;" onclick="nextFloor()">AVANÇAR</button>
+    </div>
+
+    <!-- POKÉ CENTER -->
+    <div id="screen-center" class="screen card center-text">
+      <h2 style="color:#f472b6; font-size:16px;">🏥 POKÉ CENTER & PC</h2>
+      <p style="font-size:9px; line-height:1.6;">Sinal Seguro. O Centro cura e <b>Revive</b> sua equipe inteira!</p>
+      <div style="display:flex; justify-content:center; gap:10px; margin: 15px 0;">
+        <div style="background:rgba(0,0,0,0.8); padding:10px; border-radius:4px; border:4px solid rgba(255,255,255,0.2); flex:1;">
+          <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/113.png" style="width:50px; image-rendering:pixelated;">
+          <button style="background:var(--ok); color:#000; width:100%; font-size:8px; margin-top:5px;" onclick="healParty()">CURAR ($<span id="heal-cost"></span>)</button>
+        </div>
+        <div style="background:rgba(0,0,0,0.8); padding:10px; border-radius:4px; border:4px solid rgba(255,255,255,0.2); flex:1;">
+          <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/pc.png" style="width:50px; image-rendering:pixelated;" onerror="this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/137.png'">
+          <button style="background:var(--electric); color:#000; width:100%; font-size:8px; margin-top:5px;" onclick="sellTreasures()">VENDER TESOUROS</button>
+          <button style="background:var(--rotom-eye); color:#000; width:100%; font-size:8px; margin-top:5px;" onclick="openPC()">ABRIR PC</button>
+        </div>
+      </div>
+      <button style="width:100%; font-size:9px;" onclick="openBag('center')">🎒 ABRIR MOCHILA</button>
+      <button style="width:100%; font-size:9px; margin-top:10px;" onclick="nextFloor()">SAIR DO POKÉ CENTER</button>
+    </div>
+
+    <!-- TELA DO PC -->
+    <div id="screen-pc" class="screen card center-text">
+      <h2 style="color:var(--rotom-eye); font-size:14px;">SISTEMA PC</h2>
+      <p style="font-size:7px; color:var(--dim);">Selecione Equipe + PC para trocar.</p>
+      <div style="text-align:left; font-size:9px; margin-bottom:5px;">Sua Equipe</div>
+      <div class="party-grid" id="pc-party-grid"></div>
+      <div style="text-align:left; font-size:9px; margin-bottom:5px;">Box (PC)</div>
+      <div class="pc-grid" id="pc-box-grid"></div>
+      <button style="width:100%; margin-top:10px; font-size:9px;" onclick="showScreen('screen-center')">VOLTAR</button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="screen-lose" class="screen card center-text">
+      <h2 style="color:var(--bad); font-size:18px;">SINAL PERDIDO</h2>
+      <p style="font-size:9px; line-height:1.6;">Sua equipe foi nocauteada.</p>
+      <p style="font-size:12px; font-weight:bold; color:var(--electric); margin:15px 0;">Andar Alcançado: <span id="final-floor">1</span></p>
+      <button style="width:100%; font-size:10px;" onclick="location.reload()">REINICIAR SISTEMA</button>
+    </div>
+
+    <div id="screen-win" class="screen card center-text">
+      <h2 style="color:var(--ok); font-size:18px;">TORRE CONCLUÍDA!</h2>
+      <p style="font-size:9px; line-height:1.7;">O protocolo da torre foi concluído. A equipe sobreviveu ao desafio final.</p>
+      <p style="font-size:11px; font-weight:bold; color:var(--electric); margin:15px 0;">Andar final: <span id="victory-floor">15</span> · 💰 $<span id="victory-money">0</span></p>
+      <div class="card" style="text-align:left; margin-bottom:10px;">
+        <h2>CRITÉRIOS DEMONSTRÁVEIS</h2>
+        <div style="font-size:7px; line-height:1.8; color:var(--dim);">✓ Menu e gameplay<br>✓ Combate e vantagens de tipo<br>✓ Status, troca e itens<br>✓ EXP, evolução e recompensas<br>✓ IA generativa integrada<br>✓ Vitória e derrota</div>
+      </div>
+      <button style="width:100%; font-size:10px;" onclick="location.reload()">NOVO PROTOCOLO</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// UTILITÁRIO
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+const SCENARIOS_PROMPTS = {
+  "NORMAL": "pixel art green grassy plains pokemon battle background 16 bit",
+  "GRAMA": "pixel art dense green forest pokemon battle background 16 bit",
+  "FOGO": "pixel art active volcano lava pokemon battle background 16 bit",
+  "ÁGUA": "pixel art ocean beach waves pokemon battle background 16 bit",
+  "ELÉTRICO": "pixel art futuristic power plant yellow electricity pokemon battle background 16 bit",
+  "GELO": "pixel art icy cave snow frozen crystals pokemon battle background 16 bit",
+  "LUTADOR": "pixel art martial arts dojo training ring pokemon battle background 16 bit",
+  "VENENOSO": "pixel art toxic purple swamp sludge pokemon battle background 16 bit",
+  "TERRESTRE": "pixel art sandy desert dunes pokemon battle background 16 bit",
+  "VOADOR": "pixel art high clouds sky pokemon battle background 16 bit",
+  "PSÍQUICO": "pixel art trippy cosmic dimension nebula pokemon battle background 16 bit",
+  "INSETO": "pixel art dark woods bug habitat pokemon battle background 16 bit",
+  "PEDRA": "pixel art rocky canyon high mountains pokemon battle background 16 bit",
+  "FANTASMA": "pixel art spooky graveyard dark purple mist pokemon battle background 16 bit",
+  "DRAGÃO": "pixel art ancient dragon cave dark blue pokemon battle background 16 bit"
+};
+
+const FALLBACK_BG = {
+  "NORMAL": "linear-gradient(to bottom, #1e3a8a, #0f172a)", "GRAMA": "linear-gradient(to bottom, #064e3b, #022c22)", "FOGO": "linear-gradient(to bottom, #450a0a, #2b0808)", "ÁGUA": "linear-gradient(to bottom, #082f49, #041f33)", "ELÉTRICO": "linear-gradient(to bottom, #422006, #241103)", "GELO": "linear-gradient(to bottom, #083344, #041e29)", "LUTADOR": "linear-gradient(to bottom, #7c2d12, #431407)", "VENENOSO": "linear-gradient(to bottom, #4c1d95, #2e1065)", "TERRESTRE": "linear-gradient(to bottom, #451a03, #290f02)", "VOADOR": "linear-gradient(to bottom, #0284c7, #082f49)", "PSÍQUICO": "linear-gradient(to bottom, #831843, #4c0519)", "INSETO": "linear-gradient(to bottom, #14532d, #052e16)", "PEDRA": "linear-gradient(to bottom, #3f3f46, #18181b)", "FANTASMA": "linear-gradient(to bottom, #3b0764, #280545)", "DRAGÃO": "linear-gradient(to bottom, #312e81, #1e1b4b)"
+};
+
+const LOOT_TABLE = [
+  {name: "Pepita de Ouro", type: "sell", val: 200, desc: "Vende por $200"},
+  {name: "Pó Estelar", type: "sell", val: 80, desc: "Vende por $80"},
+  {name: "Doce Raro", type: "use", stat: "level", val: 1, desc: "+1 Nível"},
+  {name: "Proteína", type: "use", stat: "atk", val: 4, desc: "+4 Ataque"},
+  {name: "Ferro", type: "use", stat: "def", val: 4, desc: "+4 Defesa"},
+  {name: "HP Up", type: "use", stat: "maxHp", val: 15, desc: "+15 HP Máx"},
+  {name: "Reviver", type: "revive", val: 0.5, desc: "Revive 50% HP"},
+  {name: "Max Revive", type: "revive", val: 1.0, desc: "Revive 100% HP"},
+  {name: "Cura Total", type: "cure", val: "ALL", desc: "Remove os Status negativos"},
+  {name: "Despertar", type: "cure", val: "SLP", desc: "Acorda o Pokémon"}
+];
+
+let state = { floor:1, money:0, party:[], pc:[], bag:[], activeIdx:0, enemy:null, inTurn:false, isBoss:false, learnQueue:[], activeScreenBeforeBag:null, ai:null, aiImage:null, mode:'story', generation:1, cycle:1 };
+
+const MAX_FLOORS=25;
+const MAX_GENERATIONS=9;
+const GENERATIONS={1:'KANTO',2:'JOHTO',3:'HOENN',4:'SINNOH',5:'UNOVA',6:'KALOS',7:'ALOLA',8:'GALAR',9:'PALDEA'};
+const GENERATION_ROSTERS={
+1:[[1,'Bulbasaur','GRAMA'],[4,'Charmander','FOGO'],[7,'Squirtle','ÁGUA'],[10,'Caterpie','INSETO'],[13,'Weedle','INSETO'],[16,'Pidgey','VOADOR'],[19,'Rattata','NORMAL'],[21,'Spearow','VOADOR'],[23,'Ekans','VENENOSO'],[25,'Pikachu','ELÉTRICO'],[27,'Sandshrew','TERRESTRE'],[37,'Vulpix','FOGO'],[39,'Jigglypuff','NORMAL'],[41,'Zubat','VENENOSO'],[43,'Oddish','GRAMA'],[50,'Diglett','TERRESTRE'],[54,'Psyduck','ÁGUA'],[56,'Mankey','LUTADOR'],[58,'Growlithe','FOGO'],[60,'Poliwag','ÁGUA'],[63,'Abra','PSÍQUICO'],[66,'Machop','LUTADOR'],[69,'Bellsprout','GRAMA'],[74,'Geodude','PEDRA'],[77,'Ponyta','FOGO'],[81,'Magnemite','ELÉTRICO'],[92,'Gastly','FANTASMA'],[95,'Onix','PEDRA'],[98,'Krabby','ÁGUA'],[100,'Voltorb','ELÉTRICO'],[104,'Cubone','TERRESTRE'],[109,'Koffing','VENENOSO'],[116,'Horsea','ÁGUA'],[129,'Magikarp','ÁGUA'],[133,'Eevee','NORMAL'],[143,'Snorlax','NORMAL'],[147,'Dratini','DRAGÃO'],[144,'Articuno','GELO'],[145,'Zapdos','ELÉTRICO'],[146,'Moltres','FOGO']],
+2:[[152,'Chikorita','GRAMA'],[155,'Cyndaquil','FOGO'],[158,'Totodile','ÁGUA'],[161,'Sentret','NORMAL'],[163,'Hoothoot','VOADOR'],[165,'Ledyba','INSETO'],[167,'Spinarak','INSETO'],[170,'Chinchou','ÁGUA'],[172,'Pichu','ELÉTRICO'],[173,'Cleffa','NORMAL'],[175,'Togepi','NORMAL'],[177,'Natu','VOADOR'],[179,'Mareep','ELÉTRICO'],[183,'Marill','ÁGUA'],[185,'Sudowoodo','PEDRA'],[187,'Hoppip','GRAMA'],[190,'Aipom','NORMAL'],[194,'Wooper','ÁGUA'],[198,'Murkrow','VOADOR'],[200,'Misdreavus','FANTASMA'],[202,'Wobbuffet','PSÍQUICO'],[204,'Pineco','INSETO'],[207,'Gligar','TERRESTRE'],[209,'Snubbull','NORMAL'],[214,'Heracross','INSETO'],[215,'Sneasel','GELO'],[216,'Teddiursa','NORMAL'],[220,'Swinub','GELO'],[228,'Houndour','FOGO'],[230,'Kingdra','ÁGUA'],[239,'Elekid','ELÉTRICO'],[240,'Magby','FOGO'],[243,'Raikou','ELÉTRICO'],[244,'Entei','FOGO'],[245,'Suicune','ÁGUA']],
+3:[[252,'Treecko','GRAMA'],[255,'Torchic','FOGO'],[258,'Mudkip','ÁGUA'],[261,'Poochyena','NORMAL'],[263,'Zigzagoon','NORMAL'],[270,'Lotad','ÁGUA'],[273,'Seedot','GRAMA'],[276,'Taillow','VOADOR'],[278,'Wingull','ÁGUA'],[280,'Ralts','PSÍQUICO'],[285,'Shroomish','GRAMA'],[287,'Slakoth','NORMAL'],[290,'Nincada','INSETO'],[293,'Whismur','NORMAL'],[296,'Makuhita','LUTADOR'],[299,'Nosepass','PEDRA'],[304,'Aron','PEDRA'],[318,'Carvanha','ÁGUA'],[320,'Wailmer','ÁGUA'],[322,'Numel','FOGO'],[325,'Spoink','PSÍQUICO'],[328,'Trapinch','TERRESTRE'],[333,'Swablu','VOADOR'],[341,'Corphish','ÁGUA'],[345,'Lileep','GRAMA'],[347,'Anorith','INSETO'],[353,'Shuppet','FANTASMA'],[355,'Duskull','FANTASMA'],[371,'Bagon','DRAGÃO'],[374,'Beldum','PSÍQUICO'],[380,'Latias','DRAGÃO'],[381,'Latios','DRAGÃO'],[382,'Kyogre','ÁGUA'],[383,'Groudon','TERRESTRE'],[384,'Rayquaza','DRAGÃO']],
+4:[[387,'Turtwig','GRAMA'],[390,'Chimchar','FOGO'],[393,'Piplup','ÁGUA'],[396,'Starly','VOADOR'],[399,'Bidoof','NORMAL'],[403,'Shinx','ELÉTRICO'],[406,'Budew','GRAMA'],[412,'Burmy','INSETO'],[415,'Combee','INSETO'],[418,'Buizel','ÁGUA'],[425,'Drifloon','FANTASMA'],[427,'Buneary','NORMAL'],[431,'Glameow','NORMAL'],[434,'Stunky','VENENOSO'],[436,'Bronzor','PSÍQUICO'],[438,'Bonsly','PEDRA'],[447,'Riolu','LUTADOR'],[449,'Hippopotas','TERRESTRE'],[451,'Skorupi','VENENOSO'],[453,'Croagunk','VENENOSO'],[459,'Snover','GRAMA'],[479,'Rotom','ELÉTRICO'],[480,'Uxie','PSÍQUICO'],[481,'Mesprit','PSÍQUICO'],[482,'Azelf','PSÍQUICO'],[483,'Dialga','DRAGÃO'],[484,'Palkia','ÁGUA'],[485,'Heatran','FOGO'],[487,'Giratina','FANTASMA']],
+5:[[495,'Snivy','GRAMA'],[498,'Tepig','FOGO'],[501,'Oshawott','ÁGUA'],[504,'Patrat','NORMAL'],[506,'Lillipup','NORMAL'],[509,'Purrloin','NORMAL'],[511,'Pansage','GRAMA'],[513,'Pansear','FOGO'],[515,'Panpour','ÁGUA'],[517,'Munna','PSÍQUICO'],[519,'Pidove','VOADOR'],[522,'Blitzle','ELÉTRICO'],[524,'Roggenrola','PEDRA'],[527,'Woobat','PSÍQUICO'],[529,'Drilbur','TERRESTRE'],[531,'Audino','NORMAL'],[532,'Timburr','LUTADOR'],[535,'Tympole','ÁGUA'],[540,'Sewaddle','INSETO'],[543,'Venipede','INSETO'],[546,'Cottonee','GRAMA'],[548,'Petilil','GRAMA'],[551,'Sandile','TERRESTRE'],[554,'Darumaka','FOGO'],[557,'Dwebble','INSETO'],[562,'Yamask','FANTASMA'],[570,'Zorua','NORMAL'],[577,'Solosis','PSÍQUICO'],[582,'Vanillite','GELO'],[588,'Karrablast','INSETO'],[595,'Joltik','INSETO'],[599,'Klink','ELÉTRICO'],[607,'Litwick','FANTASMA'],[610,'Axew','DRAGÃO'],[613,'Cubchoo','GELO'],[618,'Stunfisk','TERRESTRE'],[621,'Druddigon','DRAGÃO'],[624,'Pawniard','INSETO'],[633,'Deino','DRAGÃO'],[636,'Larvesta','INSETO'],[643,'Reshiram','DRAGÃO'],[644,'Zekrom','DRAGÃO']],
+6:[[650,'Chespin','GRAMA'],[653,'Fennekin','FOGO'],[656,'Froakie','ÁGUA'],[659,'Bunnelby','NORMAL'],[661,'Fletchling','VOADOR'],[664,'Scatterbug','INSETO'],[667,'Litleo','FOGO'],[669,'Flabébé','GRAMA'],[672,'Skiddo','GRAMA'],[674,'Pancham','LUTADOR'],[677,'Espurr','PSÍQUICO'],[679,'Honedge','FANTASMA'],[682,'Spritzee','NORMAL'],[686,'Inkay','PSÍQUICO'],[688,'Binacle','PEDRA'],[690,'Skrelp','VENENOSO'],[694,'Helioptile','ELÉTRICO'],[696,'Tyrunt','PEDRA'],[698,'Amaura','GELO'],[702,'Dedenne','ELÉTRICO'],[704,'Goomy','DRAGÃO'],[708,'Phantump','FANTASMA'],[710,'Pumpkaboo','FANTASMA'],[712,'Bergmite','GELO'],[714,'Noibat','VOADOR'],[716,'Xerneas','GRAMA'],[717,'Yveltal','VOADOR'],[718,'Zygarde','DRAGÃO']],
+7:[[722,'Rowlet','GRAMA'],[725,'Litten','FOGO'],[728,'Popplio','ÁGUA'],[731,'Pikipek','VOADOR'],[734,'Yungoos','NORMAL'],[736,'Grubbin','INSETO'],[739,'Crabrawler','LUTADOR'],[742,'Cutiefly','INSETO'],[744,'Rockruff','PEDRA'],[747,'Mareanie','VENENOSO'],[749,'Mudbray','TERRESTRE'],[751,'Dewpider','ÁGUA'],[753,'Fomantis','GRAMA'],[755,'Morelull','GRAMA'],[757,'Salandit','FOGO'],[759,'Stufful','NORMAL'],[761,'Bounsweet','GRAMA'],[764,'Comfey','GRAMA'],[765,'Oranguru','NORMAL'],[766,'Passimian','LUTADOR'],[772,'Type: Null','NORMAL'],[774,'Minior','PEDRA'],[776,'Turtonator','FOGO'],[777,'Togedemaru','ELÉTRICO'],[778,'Mimikyu','FANTASMA'],[779,'Bruxish','ÁGUA'],[782,'Jangmo-o','DRAGÃO'],[785,'Tapu Koko','ELÉTRICO'],[793,'Nihilego','PEDRA'],[800,'Necrozma','PSÍQUICO']],
+8:[[810,'Grookey','GRAMA'],[813,'Scorbunny','FOGO'],[816,'Sobble','ÁGUA'],[819,'Skwovet','NORMAL'],[821,'Rookidee','VOADOR'],[824,'Blipbug','INSETO'],[827,'Nickit','NORMAL'],[829,'Gossifleur','GRAMA'],[831,'Wooloo','NORMAL'],[833,'Chewtle','ÁGUA'],[835,'Yamper','ELÉTRICO'],[837,'Rolycoly','PEDRA'],[840,'Applin','GRAMA'],[841,'Silicobra','TERRESTRE'],[843,'Carkol','PEDRA'],[846,'Arrokuda','ÁGUA'],[848,'Toxel','ELÉTRICO'],[850,'Sizzlipede','INSETO'],[852,'Clobbopus','LUTADOR'],[854,'Sinistea','FANTASMA'],[856,'Hatenna','PSÍQUICO'],[859,'Impidimp','FANTASMA'],[868,'Milcery','NORMAL'],[870,'Falinks','LUTADOR'],[871,'Pincurchin','ELÉTRICO'],[874,'Stonjourner','PEDRA'],[875,'Eiscue','GELO'],[877,'Morpeko','ELÉTRICO'],[878,'Cufant','PEDRA'],[885,'Dreepy','DRAGÃO'],[889,'Zacian','FANTASMA'],[890,'Eternatus','DRAGÃO']],
+9:[[906,'Sprigatito','GRAMA'],[909,'Fuecoco','FOGO'],[912,'Quaxly','ÁGUA'],[915,'Lechonk','NORMAL'],[917,'Nymble','INSETO'],[921,'Pawmi','ELÉTRICO'],[924,'Tandemaus','NORMAL'],[926,'Smoliv','GRAMA'],[928,'Capsakid','GRAMA'],[931,'Wiglett','ÁGUA'],[933,'Finizen','ÁGUA'],[935,'Charcadet','FOGO'],[938,'Tadbulb','ELÉTRICO'],[940,'Wattrel','ELÉTRICO'],[944,'Greavard','FANTASMA'],[946,'Bramblin','GRAMA'],[948,'Toedscool','GRAMA'],[951,'Capsakid','GRAMA'],[953,'Rellor','INSETO'],[957,'Tinkatink','NORMAL'],[960,'Wiglett','ÁGUA'],[962,'Bombirdier','VOADOR'],[963,'Finizen','ÁGUA'],[966,'Armarouge','FOGO'],[967,'Ceruledge','FOGO'],[969,'Glimmet','PEDRA'],[974,'Cetoddle','GELO'],[976,'Veluza','ÁGUA'],[979,'Annihilape','LUTADOR'],[981,'Farigiraf','NORMAL'],[983,'Kingambit','INSETO'],[984,'Great Tusk','TERRESTRE'],[985,'Scream Tail','NORMAL'],[994,'Iron Moth','FOGO'],[998,'Baxcalibur','GELO'],[1000,'Gholdengo','FANTASMA'],[1001,'Wo-Chien','GRAMA'],[1002,'Chien-Pao','GELO'],[1003,'Ting-Lu','TERRESTRE'],[1004,'Chi-Yu','FOGO']]
+}
+function ensureGenerationDex(){
+ Object.values(GENERATION_ROSTERS).flat().forEach(([dex,name,type])=>{
+  if(!POKEDEX.some(p=>p.dex===dex)){
+   const moveType=type==='AGUA'?'ÁGUA':type==='ELETRICO'?'ELÉTRICO':type==='PSIQUICO'?'PSÍQUICO':type==='DRAGAO'?'DRAGÃO':type;
+   POKEDEX.push({dex,name,type:moveType,hp:45,atk:12,def:10,evLv:null,evTo:null,moves:[{name:'Investida',type:'NORMAL',power:40,effect:null,chance:0}],baseForm:true,legendary:false});
+  }
+ });
+}
+function currentRoster(){
+  // Modo infinito: todas as gerações ficam disponíveis desde o início.
+  // Modo história: a geração atual libera os Pokémon dela + os das gerações anteriores.
+  if(state.mode === 'infinite'){
+    return Object.keys(GENERATION_ROSTERS)
+      .map(Number)
+      .sort((a,b) => a-b)
+      .flatMap(g => GENERATION_ROSTERS[g]);
+  }
+  const gen = Math.max(1, Math.min(MAX_GENERATIONS, state.generation || 1));
+  return Object.keys(GENERATION_ROSTERS)
+    .map(Number)
+    .filter(g => g <= gen)
+    .sort((a,b) => a-b)
+    .flatMap(g => GENERATION_ROSTERS[g]);
+}
+function generationName(){return GENERATIONS[state.generation]||('GERAÇÃO '+state.generation);}
+function selectGameMode(mode){state.mode=mode==='infinite'?'infinite':'story';getDom('mode-description').innerText=state.mode==='infinite'?'♾️ INFINITO · TODAS AS GERAÇÕES · 25 ANDARES POR CICLO':'🏰 HISTÓRIA · GERAÇÃO 1 · KANTO · 25 ANDARES';showScreen('screen-start');}
+
+
+function dropItem() {
+  if (Math.random() < 0.6) {
+    const item = LOOT_TABLE[rnd(0, LOOT_TABLE.length - 1)]; state.bag.push({...item}); return item;
+  }
+  return null;
+}
+
+const TYPES = {
+  "NORMAL": { color: "#a8a29e", strong: [], weak: ["LUTADOR"] }, "FOGO": { color: "#ef4444", strong: ["GRAMA", "GELO", "INSETO"], weak: ["ÁGUA", "TERRESTRE", "PEDRA"] }, "ÁGUA": { color: "#3b82f6", strong: ["FOGO", "TERRESTRE", "PEDRA"], weak: ["GRAMA", "ELÉTRICO"] }, "GRAMA": { color: "#22c55e", strong: ["ÁGUA", "TERRESTRE", "PEDRA"], weak: ["FOGO", "GELO", "VENENOSO", "VOADOR", "INSETO"] }, "ELÉTRICO": { color: "#eab308", strong: ["ÁGUA", "VOADOR"], weak: ["TERRESTRE"] }, "GELO": { color: "#67e8f9", strong: ["GRAMA", "TERRESTRE", "VOADOR", "DRAGÃO"], weak: ["FOGO", "LUTADOR", "PEDRA"] }, "LUTADOR": { color: "#f97316", strong: ["NORMAL", "GELO", "PEDRA"], weak: ["VOADOR", "PSÍQUICO"] }, "VENENOSO": { color: "#a855f7", strong: ["GRAMA"], weak: ["TERRESTRE", "PSÍQUICO"] }, "TERRESTRE": { color: "#d97706", strong: ["FOGO", "ELÉTRICO", "VENENOSO", "PEDRA"], weak: ["ÁGUA", "GRAMA", "GELO"] }, "VOADOR": { color: "#60a5fa", strong: ["GRAMA", "LUTADOR", "INSETO"], weak: ["ELÉTRICO", "GELO", "PEDRA"] }, "PSÍQUICO": { color: "#d946ef", strong: ["LUTADOR", "VENENOSO"], weak: ["INSETO", "FANTASMA"] }, "INSETO": { color: "#84cc16", strong: ["GRAMA", "PSÍQUICO"], weak: ["FOGO", "VOADOR", "PEDRA"] }, "PEDRA": { color: "#78716c", strong: ["FOGO", "GELO", "VOADOR", "INSETO"], weak: ["ÁGUA", "GRAMA", "LUTADOR", "TERRESTRE"] }, "FANTASMA": { color: "#581c87", strong: ["FANTASMA", "PSÍQUICO"], weak: ["FANTASMA"] }, "DRAGÃO": { color: "#4f46e5", strong: ["DRAGÃO"], weak: ["GELO", "DRAGÃO"] }
+};
+
+// MOVES AGORA POSSUEM EFEITOS DE STATUS [Nome, Power, EfeitoStatus, ChanceDoEfeito]
+const MOVES_DB = {
+  "NORMAL": [["Investida", 40, null, 0], ["Canção Ninar", 0, "SLP", 0.6], ["Golpe Corpo", 65, "PAR", 0.3], ["Hiper Raio", 100, null, 0]], 
+  "FOGO": [["Brasa", 40, "BURN", 0.1], ["Fogo Fátuo", 0, "BURN", 0.85], ["Lança-Chamas", 90, "BURN", 0.1], ["Explosão", 110, "BURN", 0.2]], 
+  "ÁGUA": [["Bolhas", 40, null, 0], ["Pulso D'Água", 60, null, 0], ["Surf", 90, null, 0], ["Hidro Bomba", 110, null, 0]], 
+  "GRAMA": [["Pó do Sono", 0, "SLP", 0.75], ["Folha Navalha", 55, null, 0], ["Raio Solar", 100, null, 0]], 
+  "ELÉTRICO": [["Choque", 40, "PAR", 0.1], ["Onda Choque", 0, "PAR", 0.9], ["Relâmpago", 90, "PAR", 0.1], ["Trovão", 110, "PAR", 0.3]], 
+  "GELO": [["Pó de Neve", 40, null, 0], ["Raio de Gelo", 90, null, 0], ["Nevasca", 110, null, 0]], 
+  "LUTADOR": [["Golpe Karatê", 50, null, 0], ["Soco Dinâmico", 100, null, 0]], 
+  "VENENOSO": [["Pó Venenoso", 0, "PSN", 0.75], ["Ácido", 40, "PSN", 0.1], ["Bomba Lodo", 90, "PSN", 0.3]], 
+  "TERRESTRE": [["Tiro de Lama", 45, null, 0], ["Terremoto", 100, null, 0]], 
+  "VOADOR": [["Bicada", 40, null, 0], ["Furação", 110, null, 0]], 
+  "PSÍQUICO": [["Confusão", 50, null, 0], ["Psíquico", 90, null, 0]], 
+  "INSETO": [["Picada", 40, null, 0], ["Tesoura X", 80, null, 0]], 
+  "PEDRA": [["Lançamento", 50, null, 0], ["Deslizamento", 75, null, 0]], 
+  "FANTASMA": [["Lambida", 40, "PAR", 0.3], ["Sombra Noturna", 60, null, 0], ["Bola Sombria", 80, null, 0]], 
+  "DRAGÃO": [["Sopro Dragão", 60, "PAR", 0.3], ["Ira Dragão", 120, null, 0]]
+};
+
+const rawDex = [
+  [1,"Bulbasaur","GRAMA",0,"Ivysaur"], [2,"Ivysaur","GRAMA",1,"Venusaur"], [3,"Venusaur","GRAMA",2,null], [4,"Charmander","FOGO",0,"Charmeleon"], [5,"Charmeleon","FOGO",1,"Charizard"], [6,"Charizard","FOGO",2,null], [7,"Squirtle","ÁGUA",0,"Wartortle"], [8,"Wartortle","ÁGUA",1,"Blastoise"], [9,"Blastoise","ÁGUA",2,null], [10,"Caterpie","INSETO",0,"Metapod"], [11,"Metapod","INSETO",1,"Butterfree"], [12,"Butterfree","INSETO",2,null], [13,"Weedle","INSETO",0,"Kakuna"], [14,"Kakuna","INSETO",1,"Beedrill"], [15,"Beedrill","INSETO",2,null], [16,"Pidgey","VOADOR",0,"Pidgeotto"], [17,"Pidgeotto","VOADOR",1,"Pidgeot"], [18,"Pidgeot","VOADOR",2,null], [19,"Rattata","NORMAL",0,"Raticate"], [20,"Raticate","NORMAL",2,null], [21,"Spearow","VOADOR",0,"Fearow"], [22,"Fearow","VOADOR",2,null], [23,"Ekans","VENENOSO",0,"Arbok"], [24,"Arbok","VENENOSO",2,null], [25,"Pikachu","ELÉTRICO",0,"Raichu"], [26,"Raichu","ELÉTRICO",2,null], [27,"Sandshrew","TERRESTRE",0,"Sandslash"], [28,"Sandslash","TERRESTRE",2,null], [29,"Nidoran♀","VENENOSO",0,"Nidorina"], [30,"Nidorina","VENENOSO",1,"Nidoqueen"], [31,"Nidoqueen","VENENOSO",2,null], [32,"Nidoran♂","VENENOSO",0,"Nidorino"], [33,"Nidorino","VENENOSO",1,"Nidoking"], [34,"Nidoking","VENENOSO",2,null], [35,"Clefairy","NORMAL",0,"Clefable"], [36,"Clefable","NORMAL",2,null], [37,"Vulpix","FOGO",0,"Ninetales"], [38,"Ninetales","FOGO",2,null], [39,"Jigglypuff","NORMAL",0,"Wigglytuff"], [40,"Wigglytuff","NORMAL",2,null], [41,"Zubat","VENENOSO",0,"Golbat"], [42,"Golbat","VENENOSO",2,null], [43,"Oddish","GRAMA",0,"Gloom"], [44,"Gloom","GRAMA",1,"Vileplume"], [45,"Vileplume","GRAMA",2,null], [46,"Paras","INSETO",0,"Parasect"], [47,"Parasect","INSETO",2,null], [48,"Venonat","INSETO",0,"Venomoth"], [49,"Venomoth","INSETO",2,null], [50,"Diglett","TERRESTRE",0,"Dugtrio"], [51,"Dugtrio","TERRESTRE",2,null], [52,"Meowth","NORMAL",0,"Persian"], [53,"Persian","NORMAL",2,null], [54,"Psyduck","ÁGUA",0,"Golduck"], [55,"Golduck","ÁGUA",2,null], [56,"Mankey","LUTADOR",0,"Primeape"], [57,"Primeape","LUTADOR",2,null], [58,"Growlithe","FOGO",0,"Arcanine"], [59,"Arcanine","FOGO",2,null], [60,"Poliwag","ÁGUA",0,"Poliwhirl"], [61,"Poliwhirl","ÁGUA",1,"Poliwrath"], [62,"Poliwrath","ÁGUA",2,null], [63,"Abra","PSÍQUICO",0,"Kadabra"], [64,"Kadabra","PSÍQUICO",1,"Alakazam"], [65,"Alakazam","PSÍQUICO",2,null], [66,"Machop","LUTADOR",0,"Machoke"], [67,"Machoke","LUTADOR",1,"Machamp"], [68,"Machamp","LUTADOR",2,null], [69,"Bellsprout","GRAMA",0,"Weepinbell"], [70,"Weepinbell","GRAMA",1,"Victreebel"], [71,"Victreebel","GRAMA",2,null], [72,"Tentacool","ÁGUA",0,"Tentacruel"], [73,"Tentacruel","ÁGUA",2,null], [74,"Geodude","PEDRA",0,"Graveler"], [75,"Graveler","PEDRA",1,"Golem"], [76,"Golem","PEDRA",2,null], [77,"Ponyta","FOGO",0,"Rapidash"], [78,"Rapidash","FOGO",2,null], [79,"Slowpoke","ÁGUA",0,"Slowbro"], [80,"Slowbro","ÁGUA",2,null], [81,"Magnemite","ELÉTRICO",0,"Magneton"], [82,"Magneton","ELÉTRICO",2,null], [83,"Farfetch'd","VOADOR",1,null], [84,"Doduo","VOADOR",0,"Dodrio"], [85,"Dodrio","VOADOR",2,null], [86,"Seel","ÁGUA",0,"Dewgong"], [87,"Dewgong","GELO",2,null], [88,"Grimer","VENENOSO",0,"Muk"], [89,"Muk","VENENOSO",2,null], [90,"Shellder","ÁGUA",0,"Cloyster"], [91,"Cloyster","ÁGUA",2,null], [92,"Gastly","FANTASMA",0,"Haunter"], [93,"Haunter","FANTASMA",1,"Gengar"], [94,"Gengar","FANTASMA",2,null], [95,"Onix","PEDRA",1,null], [96,"Drowzee","PSÍQUICO",0,"Hypno"], [97,"Hypno","PSÍQUICO",2,null], [98,"Krabby","ÁGUA",0,"Kingler"], [99,"Kingler","ÁGUA",2,null], [100,"Voltorb","ELÉTRICO",0,"Electrode"], [101,"Electrode","ELÉTRICO",2,null], [102,"Exeggcute","GRAMA",0,"Exeggutor"], [103,"Exeggutor","GRAMA",2,null], [104,"Cubone","TERRESTRE",0,"Marowak"], [105,"Marowak","TERRESTRE",2,null], [106,"Hitmonlee","LUTADOR",1,null], [107,"Hitmonchan","LUTADOR",1,null], [108,"Lickitung","NORMAL",1,null], [109,"Koffing","VENENOSO",0,"Weezing"], [110,"Weezing","VENENOSO",2,null], [111,"Rhyhorn","TERRESTRE",0,"Rhydon"], [112,"Rhydon","TERRESTRE",2,null], [113,"Chansey","NORMAL",1,null], [114,"Tangela","GRAMA",1,null], [115,"Kangaskhan","NORMAL",1,null], [116,"Horsea","ÁGUA",0,"Seadra"], [117,"Seadra","ÁGUA",2,null], [118,"Goldeen","ÁGUA",0,"Seaking"], [119,"Seaking","ÁGUA",2,null], [120,"Staryu","ÁGUA",0,"Starmie"], [121,"Starmie","ÁGUA",2,null], [122,"Mr. Mime","PSÍQUICO",1,null], [123,"Scyther","INSETO",1,null], [124,"Jynx","GELO",1,null], [125,"Electabuzz","ELÉTRICO",1,null], [126,"Magmar","FOGO",1,null], [127,"Pinsir","INSETO",1,null], [128,"Tauros","NORMAL",1,null], [129,"Magikarp","ÁGUA",0,"Gyarados"], [130,"Gyarados","ÁGUA",2,null], [131,"Lapras","ÁGUA",1,null], [132,"Ditto","NORMAL",1,null], [133,"Eevee","NORMAL",0,"Vaporeon"], [134,"Vaporeon","ÁGUA",2,null], [135,"Jolteon","ELÉTRICO",2,null], [136,"Flareon","FOGO",2,null], [137,"Porygon","NORMAL",1,null], [138,"Omanyte","PEDRA",0,"Omastar"], [139,"Omastar","PEDRA",2,null], [140,"Kabuto","PEDRA",0,"Kabutops"], [141,"Kabutops","PEDRA",2,null], [142,"Aerodactyl","PEDRA",1,null], [143,"Snorlax","NORMAL",1,null], [144,"Articuno","GELO",3,null], [145,"Zapdos","ELÉTRICO",3,null], [146,"Moltres","FOGO",3,null], [147,"Dratini","DRAGÃO",0,"Dragonair"], [148,"Dragonair","DRAGÃO",1,"Dragonite"], [149,"Dragonite","DRAGÃO",2,null], [150,"Mewtwo","PSÍQUICO",3,null], [151,"Mew","PSÍQUICO",3,null]
+];
+
+const POKEDEX = rawDex.map(d => {
+  const stage = d[3], isBase = (stage === 0 || (stage === 1 && d[4] === null)), isLegendary = (stage === 3);
+  let baseHp, baseAtk, baseDef, evLv;
+  if (stage === 0) { baseHp=45; baseAtk=12; baseDef=10; evLv=4; } else if (stage === 1) { baseHp=60; baseAtk=18; baseDef=15; evLv= d[4] ? 8 : null; } else if (stage === 2) { baseHp=85; baseAtk=25; baseDef=20; evLv=null; } else if (stage === 3) { baseHp=100; baseAtk=32; baseDef=25; evLv=null; }
+  
+  const typeMoves = MOVES_DB[d[2]], normalMoves = MOVES_DB["NORMAL"]; 
+  let moves = [{name: normalMoves[0][0], type: "NORMAL", power: normalMoves[0][1], effect: normalMoves[0][2] || null, chance: normalMoves[0][3] || 0}];
+  if(d[2] !== "NORMAL") moves.push({name: typeMoves[0][0], type: d[2], power: typeMoves[0][1], effect: typeMoves[0][2] || null, chance: typeMoves[0][3] || 0});
+
+  return { dex: d[0], name: d[1], type: d[2], hp: baseHp, atk: baseAtk, def: baseDef, evLv: evLv, evTo: d[4], moves: moves, baseForm: isBase, legendary: isLegendary };
+});
+
+ensureGenerationDex();
+
+function getDom(id) { return document.getElementById(id); }
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); getDom(id).classList.add('active'); }
+
+// Fallback para navegadores que tenham problema com onclick inline: garante que os iniciais respondam ao clique.
+document.addEventListener('click', function(ev){
+  const btn = ev.target.closest && ev.target.closest('[data-starter]');
+  if(btn){ ev.preventDefault(); chooseStarter(btn.getAttribute('data-starter')); }
+});
+function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function createMon(baseName, level = 1) { const base = POKEDEX.find(p => p.name === baseName); return { ...base, level: level, exp: 0, maxExp: level * 10, maxHp: base.hp + (level * 4), hp: base.hp + (level * 4), atk: base.atk + (level * 2), def: base.def + (level * 1.5), status: null, sleepTurns: 0, moves: base.moves.map(m => ({...m})) }; }
+function log(msg, type = '') { const box = getDom('log-box'); const div = document.createElement('div'); div.innerHTML = msg; if(type) div.className = type; box.appendChild(div); box.scrollTop = box.scrollHeight; }
+
+function showHistory() {
+  const hist = JSON.parse(localStorage.getItem('pokeTowerHist') || '[]'); const list = getDom('history-list');
+  if(hist.length === 0) list.innerHTML = "Sem registros na memória."; else list.innerHTML = hist.reverse().slice(0, 15).map((h, i) => `<div style="padding:8px; border:4px solid var(--line); border-radius:4px; margin-bottom:5px;"><b>Run #${hist.length - i}</b> - ${h.result||'REGISTRO'} | G${h.generation||1} · ${h.mode==='infinite'?'INFINITO':'HISTÓRIA'} · Andar ${h.floor}/${MAX_FLOORS} | 💰 ${h.money} <br><span style="font-size:7px;">Equipe: ${h.team}</span></div>`).join('');
+  showScreen('screen-history');
+}
+
+// --- IA GENERATIVA + DIFICULDADE ADAPTATIVA ---
+async function getAdaptiveAdvice(manual = false) {
+  if (!state.enemy || !state.party.length) return;
+  const activeMon = state.party[state.activeIdx] && state.party[state.activeIdx].hp > 0
+    ? state.party[state.activeIdx]
+    : state.party.find(p => p.hp > 0);
+  if (!activeMon) return;
+
+  const enemyType = state.enemy.type;
+  const activeType = activeMon.type;
+  const activeData = TYPES[activeType] || {strong:[], weak:[]};
+  const enemyData = TYPES[enemyType] || {strong:[], weak:[]};
+  const playerAdvantage = activeData.strong.includes(enemyType);
+  const playerDisadvantage = activeData.weak.includes(enemyType);
+  const enemyAdvantage = enemyData.strong.includes(activeType);
+  const enemyDisadvantage = enemyData.weak.includes(activeType);
+  const hpRatio = activeMon.maxHp ? activeMon.hp / activeMon.maxHp : 1;
+
+  let matchup = 'NEUTRO';
+  if (playerAdvantage) matchup = 'VANTAGEM DO JOGADOR';
+  else if (playerDisadvantage) matchup = 'DESVANTAGEM DO JOGADOR';
+  if (enemyAdvantage) matchup += ' · INIMIGO É FORTE CONTRA O ATIVO';
+  else if (enemyDisadvantage) matchup += ' · INIMIGO É FRACO CONTRA O ATIVO';
+
+  // A adaptação só acontece uma vez por batalha e nunca ao clicar manualmente.
+  if (!manual && hpRatio <= 0.40 && state.floor > 2 && !state.ai?.adaptedThisBattle) {
+    state.enemy.level=Math.max(1,state.enemy.level-1);
+    state.enemy.maxHp=Math.max(1,Math.floor(state.enemy.maxHp*0.75));
+    state.enemy.hp=Math.min(state.enemy.hp,state.enemy.maxHp);
+    state.enemy.atk=Math.max(1,Math.floor(state.enemy.atk*0.75));
+    state.enemy.def=Math.max(1,Math.floor(state.enemy.def*0.75));
+    state.ai={...(state.ai||{}),adaptedThisBattle:true};
+    log('> <b style="color:var(--rotom-eye)">IA ADAPTATIVA:</b> equipe em estado crítico; dificuldade reduzida nesta batalha.','log-heal');
+  }
+
+  const statusText = activeMon.status ? `status do ativo: ${activeMon.status}` : 'sem status negativo';
+  const teamText = state.party.map(p=>`${p.name} ${p.type} HP ${Math.max(0,p.hp)}/${p.maxHp}${p.status?' '+p.status:''}`).join(' | ');
+  const enemyMoves = (state.enemy.moves||[]).slice(0,4).map(m=>`${m.name} (${m.type}, ${m.power||0})`).join(', ');
+  const status=getDom('ai-status'), advice=getDom('ai-advice');
+  if(status){status.innerText='GERANDO...';status.style.color='var(--electric)';}
+  if(advice) advice.innerText='Rotom-A1 está analisando tipos, HP, status e equipe...';
+  log('> <span style="color:var(--rotom-eye)">Rotom-A1 analisando o estado real da batalha...</span>');
+
+  const prompt=`Você é Rotom-A1, assistente tático de um RPG Pokémon. NÃO invente tipos, golpes ou vantagens. Use somente os dados abaixo.
+Andar ${state.floor}. Inimigo: ${state.enemy.name}, tipo ${enemyType}, HP ${Math.max(0,state.enemy.hp)}/${state.enemy.maxHp}, golpes: ${enemyMoves||'não informado'}.
+Ativo: ${activeMon.name}, tipo ${activeType}, HP ${Math.max(0,activeMon.hp)}/${activeMon.maxHp}, ${statusText}.
+Relação de tipos já calculada: ${matchup}. O tipo ${activeType} é forte contra: ${activeData.strong.join(', ')||'nenhum'}; fraco contra: ${activeData.weak.join(', ')||'nenhum'}. O tipo inimigo ${enemyType} é forte contra: ${enemyData.strong.join(', ')||'nenhum'}; fraco contra: ${enemyData.weak.join(', ')||'nenhum'}.
+Equipe: ${teamText}.
+Dê UMA recomendação objetiva de até 28 palavras: atacar, trocar, usar item/status ou jogar defensivamente. Se houver vantagem de tipo, diga qual. Se não houver, diga que é neutro. Não afirme que um tipo é forte se os dados não mostram isso.`;
+  try{
+    const response=await fetch('http://127.0.0.1:8000/api/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-API-Key':'poke-tower-dev-key'},
+      body:JSON.stringify({prompt,model:'llama3.2'})
+    });
+    if(!response.ok) throw new Error('API HTTP '+response.status);
+    const data=await response.json(), text=(data.response||'').trim();
+    if(!text) throw new Error('Resposta vazia');
+    if(advice) advice.innerText='“'+text+'”';
+    if(status){status.innerText='MODELO LOCAL OK';status.style.color='var(--ok)';}
+    log('> <b style="color:var(--rotom-eye)">Rotom-A1:</b> "'+text+'"');
+    state.ai={...(state.ai||{}),modality:'text',provider:'Ollama / llama3.2',prompt,response:text};
+  }catch(error){
+    let fallback;
+    if(playerAdvantage) fallback=`Vantagem confirmada: ${activeType} é forte contra ${enemyType}. Ataque com seu melhor golpe.`;
+    else if(playerDisadvantage) fallback=`Cuidado: ${activeType} é fraco contra ${enemyType}. Considere trocar para um Pokémon com vantagem.`;
+    else if(enemyDisadvantage) fallback=`O inimigo ${enemyType} é fraco contra ${activeType}, mas a relação é neutra para o ataque do ativo. Avalie seus golpes.`;
+    else fallback=`Relação de tipos neutra. Considere HP, status e golpes antes de decidir.`;
+    if(advice) advice.innerText=fallback+' [análise local]';
+    if(status){status.innerText='ANÁLISE TÁTICA LOCAL';status.style.color='var(--electric)';}
+    log('> <b style="color:var(--rotom-eye)">Rotom-A1:</b> '+fallback);
+    state.ai={...(state.ai||{}),modality:'text-fallback',provider:'análise local determinística',response:fallback};
+  }
+}
+
+// Modalidade de IA generativa visual: cenário solicitado e exibido dentro do gameplay.
+function setArenaScenario(enemyType,floor){
+  const screen=getDom('rotom-screen-main');
+  const basePrompt=SCENARIOS_PROMPTS[enemyType]||SCENARIOS_PROMPTS.NORMAL;
+  screen.style.backgroundImage=FALLBACK_BG[enemyType]||FALLBACK_BG.NORMAL;
+  const imgUrl=`https://image.pollinations.ai/prompt/${encodeURIComponent(basePrompt)}?width=800&height=400&nologo=true&seed=${encodeURIComponent(floor+'-'+enemyType)}`;
+  const img=new Image();
+  img.onload=()=>{screen.style.backgroundImage=`url('${imgUrl}')`;const st=getDom('ai-status');if(st){st.innerText='IMAGEM IA OK';st.style.color='var(--ok)';}state.aiImage={modality:'image',provider:'Pollinations',url:imgUrl,prompt:basePrompt};log('> <b style="color:var(--rotom-eye)">IA VISUAL:</b> cenário generativo carregado.');};
+  img.onerror=()=>log('> IA visual indisponível: usando cenário de segurança local.','log-dmg');
+  img.src=imgUrl;
+}
+
+function chooseStarter(starterName){
+  // Fluxo explícito da seleção: modo -> inicial -> batalha.
+  const selectedMode = (state && state.mode === 'infinite') ? 'infinite' : 'story';
+  const starter = createMon(starterName, 3);
+  if(!starter){
+    console.error('Inicial não encontrado:', starterName);
+    alert('Não foi possível carregar esse inicial. Escolha novamente.');
+    showScreen('screen-start');
+    return false;
+  }
+  state = {
+    floor:1, money:0, party:[starter], pc:[], bag:[], activeIdx:0,
+    enemy:null, inTurn:false, isBoss:false, learnQueue:[], activeScreenBeforeBag:null,
+    ai:null, aiImage:null, mode:selectedMode, generation:1, cycle:1
+  };
+  updateHeader();
+  showScreen('screen-battle');
+  startFloor();
+  return true;
+}
+
+function startGame(starterName){
+  return chooseStarter(starterName);
+}
+
+
+function startFloor(){
+ updateHeader();
+ if(!state.party.length){showScreen('screen-start');return;}
+ if(state.party.every(p=>p.hp<=0)){checkTeamStatus();return;}
+ const bossFloor=(state.floor===10||state.floor===20||state.floor===25);
+ if(state.floor>1&&state.floor%5===0&&!bossFloor){getDom('heal-cost').innerText=Math.max(50,Math.floor(state.floor/5)*50);showScreen('screen-center');return;}
+ state.isBoss=bossFloor; const roster=currentRoster(); const choice=roster[rnd(0,roster.length-1)];
+ state.enemy=createMon(choice[1],Math.max(1,Math.floor(state.floor*0.8)+state.generation-1));
+ if(state.isBoss){state.enemy.level=Math.max(state.enemy.level,Math.floor(state.floor*1.1)+state.generation);getDom('e-container').className='mon enemy boss';getDom('boss-icon').hidden=false;log(`> CHEFE DA GERAÇÃO ${state.generation}: ${state.enemy.name}!`,'log-crit');}
+ else {getDom('e-container').className='mon enemy';getDom('boss-icon').hidden=true;log(`> ${state.enemy.name} apareceu!`);}
+ let active=state.party[state.activeIdx]; if(!active||active.hp<=0){state.activeIdx=state.party.findIndex(p=>p.hp>0);active=state.party[state.activeIdx];}
+ if(!active){checkTeamStatus();return;}
+ setArenaScenario(state.enemy.type,state.floor); getDom('p-sprite').classList.remove('anim-faint');getDom('e-sprite').classList.remove('anim-faint');getDom('log-box').innerHTML='';updateUI();showScreen('screen-battle');getAdaptiveAdvice();
+}
+function continueGeneration(){startFloor();}
+function advanceGeneration(){
+ if(state.mode==='story'&&state.generation>=MAX_GENERATIONS){finishVictory();return;}
+ const oldGen=state.generation; state.generation=state.generation>=MAX_GENERATIONS?1:state.generation+1;state.floor=1;state.cycle++;state.isBoss=false;state.enemy=null;state.inTurn=false;
+ state.party.forEach(p=>{p.hp=p.maxHp;p.status=null;p.sleepTurns=0;});
+ const hist=JSON.parse(localStorage.getItem('pokeTowerHist')||'[]');hist.push({floor:MAX_FLOORS,money:state.money,team:state.party.map(p=>`Lv${p.level} ${p.name}`).join(', '),result:'NOVA_GERACAO',generation:oldGen,nextGeneration:state.generation,mode:state.mode,cycle:state.cycle});localStorage.setItem('pokeTowerHist',JSON.stringify(hist));
+ getDom('generation-message').innerText=`A Geração ${state.generation} · ${generationName()} foi desbloqueada.`;getDom('generation-cycle').innerText=`Ciclo ${state.cycle} · Andares reiniciados em 1/${MAX_FLOORS}. Sua equipe foi restaurada.`;updateHeader();showScreen('screen-generation');
+}
+
+function checkEvolution(mon) {
+  if (mon.evLv && mon.level >= mon.evLv) {
+    log(`> ${mon.name} evoluiu para ${mon.evTo}!`, 'log-electric'); const evo = POKEDEX.find(p => p.name === mon.evTo);
+    Object.assign(mon, { name: evo.name, dex: evo.dex, baseForm: evo.baseForm, type: evo.type, evLv: evo.evLv, evTo: evo.evTo });
+    mon.maxHp += 15; mon.hp += 15; mon.atk += 5; mon.def += 5;
+  }
+}
+
+function generateNewMove(mon) {
+  let pool = [];
+  if (MOVES_DB[mon.type]) pool = pool.concat(MOVES_DB[mon.type].map(m => ({name: m[0], power: m[1], type: mon.type, effect: m[2]||null, chance: m[3]||0})));
+  pool = pool.concat(MOVES_DB["NORMAL"].map(m => ({name: m[0], power: m[1], type: "NORMAL", effect: m[2]||null, chance: m[3]||0})));
+  let unknown = pool.filter(m => !mon.moves.some(known => known.name === m.name));
+  if(unknown.length === 0) return null;
+  return unknown[rnd(0, unknown.length-1)];
+}
+
+function distributeExp() {
+  const expGain = state.isBoss ? (state.floor * 15) : 15 + (state.floor * 5);
+  state.learnQueue = [];
+  
+  state.party.forEach(mon => {
+    if(mon.hp > 0) {
+      mon.exp += expGain; log(`${mon.name} ganhou ${expGain} EXP.`);
+      while(mon.exp >= mon.maxExp) { 
+        let oldLevel = mon.level;
+        mon.exp -= mon.maxExp; mon.level++; mon.maxExp = mon.level * 10; mon.maxHp += 4; mon.hp += 4; mon.atk += 2; mon.def += 1.5; 
+        log(`${mon.name} subiu p/ Nível ${mon.level}!`, 'log-heal'); 
+        checkEvolution(mon); 
+        if (Math.floor(oldLevel / 5) < Math.floor(mon.level / 5)) {
+          const newMove = generateNewMove(mon);
+          if (newMove) state.learnQueue.push({ mon: mon, newMove: newMove });
+        }
+      }
+    }
+  });
+}
+
+function processLearnQueue() {
+  if(state.learnQueue.length === 0) {
+    getDom('screen-learn').classList.remove('active');
+    if (state.isBoss) { getDom('boss-sprite-cap').src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${state.enemy.dex}.png`; getDom('boss-cap-result').innerText = ''; getDom('boss-btn-group').style.display = 'grid'; getDom('btn-boss-next').style.display = 'none'; showScreen('screen-boss-capture'); } 
+    else { generateDraft(); showScreen('screen-reward'); }
+    return;
+  }
+  
+  const current = state.learnQueue[0];
+  if(current.mon.moves.length < 4) {
+    current.mon.moves.push(current.newMove); log(`> ${current.mon.name} aprendeu ${current.newMove.name}!`, 'log-electric');
+    state.learnQueue.shift(); processLearnQueue();
+  } else {
+    getDom('learn-msg').innerHTML = `${current.mon.name} quer aprender <b style="color:var(--electric)">${current.newMove.name}</b> (Pwr: ${current.newMove.power}). Qual esquecer?`;
+    getDom('learn-moves-grid').innerHTML = current.mon.moves.map((m, idx) => `<button class="move-btn" style="border-color:${TYPES[m.type].color}; font-size:7px;" onclick="replaceMove(${idx})"><span style="margin-bottom:4px;">${m.name}</span><span style="color:${TYPES[m.type].color}">Pwr: ${m.power}</span></button>`).join('');
+    showScreen('screen-learn');
+  }
+}
+
+function replaceMove(slotIndex) {
+  const current = state.learnQueue[0]; const oldMove = current.mon.moves[slotIndex]; current.mon.moves[slotIndex] = current.newMove;
+  log(`> ${current.mon.name} esqueceu ${oldMove.name} e aprendeu ${current.newMove.name}!`, 'log-electric');
+  state.learnQueue.shift(); processLearnQueue();
+}
+function skipLearnMove() {
+  const current = state.learnQueue[0]; log(`> ${current.mon.name} não aprendeu ${current.newMove.name}.`);
+  state.learnQueue.shift(); processLearnQueue();
+}
+
+// --- ENGINE DE COMBATE E STATUS ---
+function calcDamage(attacker, defender, move) {
+  let multiplier = 1, stab = 1; const typeData = TYPES[move.type];
+  if(typeData.strong.includes(defender.type)) multiplier = 2.0; if(typeData.weak.includes(defender.type)) multiplier = 0.5; if(move.type === attacker.type) stab = 1.5;
+  let baseDmg = (((2 * attacker.level / 5) + 2) * move.power * (attacker.atk / defender.def)) / 50 + 2;
+  if(attacker.status === 'BURN') baseDmg *= 0.5; // Burn corta o dano
+  return { dmg: Math.max(1, Math.floor(baseDmg * multiplier * stab)) + rnd(0, 2), multiplier };
+}
+
+function triggerAnim(spriteId, animClass) { const el = getDom(spriteId); el.classList.remove(animClass); void el.offsetWidth; el.classList.add(animClass); setTimeout(() => el.classList.remove(animClass), 500); }
+
+function handlePreAttack(mon) {
+  if (mon.status === 'SLP') {
+    mon.sleepTurns--;
+    if (mon.sleepTurns <= 0) { mon.status = null; log(`> ${mon.name} acordou!`, 'log-heal'); return true; }
+    log(`> ${mon.name} está dormindo...`); return false;
+  }
+  if (mon.status === 'PAR') {
+    if (Math.random() < 0.25) { log(`> ${mon.name} está paralisado e não atacou!`, 'log-electric'); return false; }
+  }
+  return true;
+}
+
+function handlePostAttack(mon) {
+  if (mon.status === 'BURN') {
+    const dmg = Math.max(1, Math.floor(mon.maxHp / 16)); mon.hp -= dmg; log(`> ${mon.name} sofreu com a queimadura!`, 'log-dmg');
+  }
+  if (mon.status === 'PSN') {
+    const dmg = Math.max(1, Math.floor(mon.maxHp / 8)); mon.hp -= dmg; log(`> ${mon.name} sofreu dano do veneno!`, 'log-dmg');
+  }
+}
+
+async function executeTurn(attacker, defender, move, atkSprite, defSprite) {
+  if(!handlePreAttack(attacker)) return;
+  
+  log(`<span style="color:var(--rotom-eye)">> ${attacker.name} usou ${move.name}!</span>`);
+  triggerAnim(atkSprite, atkSprite==='p-sprite' ? 'anim-atk-p' : 'anim-atk-e');
+  await delay(400);
+
+  if (move.power > 0) {
+    let res = calcDamage(attacker, defender, move);
+    defender.hp = Math.max(0, defender.hp - res.dmg);
+    triggerAnim(defSprite, 'anim-hit');
+    if(res.multiplier > 1) log(`> É super efetivo!`, 'log-crit'); else if(res.multiplier < 1) log(`> Pouco efetivo...`, 'log-dmg');
+  }
+
+  // Aplica Efeito de Status se o oponente não tiver nenhum
+  if (move.effect && !defender.status && Math.random() < move.chance && defender.hp > 0) {
+    defender.status = move.effect;
+    if(move.effect === 'SLP') defender.sleepTurns = rnd(1, 3);
+    log(`> ${defender.name} sofreu ${move.effect}!`, 'log-electric');
+  }
+  updateUI();
+}
+
+async function attack(moveIndex) {
+  if(state.inTurn) return; state.inTurn = true; 
+  getDom('battle-controls').style.pointerEvents = "none"; getDom('battle-controls').style.opacity = "0.5";
+  
+  let p = state.party[state.activeIdx], e = state.enemy, pMove = p.moves[moveIndex];
+  
+  // TURNO DO PLAYER
+  await executeTurn(p, e, pMove, 'p-sprite', 'e-sprite');
+  if (e.hp > 0) handlePostAttack(e); // inimigo sofre burn/psn
+  updateUI();
+  
+  if(e.hp <= 0) { getDom('e-sprite').classList.add('anim-faint'); setTimeout(winFloor, 1000); return; }
+  await delay(800);
+
+  // TURNO DO INIMIGO
+  let eMove = e.moves[rnd(0, e.moves.length - 1)];
+  await executeTurn(e, p, eMove, 'e-sprite', 'p-sprite');
+  if (p.hp > 0) handlePostAttack(p);
+  updateUI();
+
+  if(p.hp <= 0) { 
+    getDom('p-sprite').classList.add('anim-faint'); log(`> ${p.name} desmaiou!`, 'log-dmg'); 
+    setTimeout(checkTeamStatus, 1000); 
+  } else { 
+    state.inTurn = false; getDom('battle-controls').style.pointerEvents = "auto"; getDom('battle-controls').style.opacity = "1"; 
+  }
+}
+
+function togglePartyMenu(mode) { const menu = getDom('party-menu'), ctrls = getDom('battle-controls'); if(menu.hidden) { menu.hidden = false; ctrls.hidden = true; renderPartyUI(true); } else { menu.hidden = true; ctrls.hidden = false; } }
+
+function renderPartyUI(isBattleSwap) {
+  const grid = getDom('ui-party'); grid.innerHTML = '';
+  state.party.forEach((mon, i) => {
+    const isDead = mon.hp <= 0, isActive = (isBattleSwap && i === state.activeIdx);
+    const div = document.createElement('div'); div.className = `party-slot ${isDead ? 'dead' : ''} ${isActive ? 'active' : ''}`;
+    div.innerHTML = `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.dex}.png"><div class="p-name">${mon.name}</div><div style="font-size:7px; color:var(--dim)">Lv ${mon.level} | ${Math.floor(mon.hp)}/${mon.maxHp}</div>`;
+    div.onclick = () => { if(!isDead && !isActive) swapPokemon(i); }; grid.appendChild(div);
+  });
+}
+
+async function swapPokemon(index) {
+  state.activeIdx = index; togglePartyMenu('battle'); log(`> Vai, ${state.party[index].name}!`); getDom('p-sprite').classList.remove('anim-faint'); updateUI();
+  state.inTurn = true; getDom('battle-controls').style.pointerEvents = "none"; getDom('battle-controls').style.opacity = "0.5";
+  
+  await delay(800);
+  let p = state.party[state.activeIdx], e = state.enemy, eMove = e.moves[rnd(0, e.moves.length - 1)];
+  
+  // Inimigo ataca livremente na troca
+  await executeTurn(e, p, eMove, 'e-sprite', 'p-sprite');
+  if (p.hp > 0) handlePostAttack(p);
+  updateUI();
+
+  if(p.hp <= 0) { 
+    getDom('p-sprite').classList.add('anim-faint'); log(`> ${p.name} desmaiou!`, 'log-dmg'); 
+    setTimeout(checkTeamStatus, 1000); 
+  } else { 
+    state.inTurn = false; getDom('battle-controls').style.pointerEvents = "auto"; getDom('battle-controls').style.opacity = "1"; 
+  }
+}
+
+function checkTeamStatus(){
+ if(!state.party.some(p=>p.hp>0)){
+  state.inTurn=false;getDom('battle-controls').style.pointerEvents='none';
+  const hist=JSON.parse(localStorage.getItem('pokeTowerHist')||'[]');hist.push({floor:state.floor,money:state.money,team:state.party.map(p=>`Lv${p.level} ${p.name}`).join(', '),result:'GAME OVER',generation:state.generation,mode:state.mode,cycle:state.cycle});localStorage.setItem('pokeTowerHist',JSON.stringify(hist));
+  getDom('final-floor').innerText=state.floor;setTimeout(()=>showScreen('screen-lose'),500);
+ }else{log('> Escolha o próximo Pokémon!');getDom('party-menu').hidden=false;getDom('btn-cancel-party').hidden=true;renderPartyUI(true);}
+}
+
+function winFloor() {
+  state.party.forEach(p => { if(p.hp > 0) p.hp = Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.3)); });
+  const moneyGain = state.isBoss ? state.floor * 30 : state.floor * 15; state.money += moneyGain; getDom('reward-money').innerText = moneyGain; updateHeader(); 
+  
+  const droppedItem = dropItem();
+  getDom('reward-drop').innerText = droppedItem ? `Loot: 1x ${droppedItem.name} adicionado à Mochila!` : '';
+
+  distributeExp();
+  state.inTurn = false; getDom('battle-controls').style.pointerEvents = "auto"; getDom('battle-controls').style.opacity = "1";
+  processLearnQueue();
+}
+
+function attemptCapture() {
+  getDom('boss-btn-group').style.display = 'none';
+  if (Math.random() > 0.5) { getDom('boss-cap-result').innerHTML = `<span style="color:var(--ok)">SUCESSO!</span>`; addToTeamOrPC(state.enemy); } 
+  else { getDom('boss-cap-result').innerHTML = `<span style="color:var(--bad)">FALHOU! Escapou!</span>`; }
+  
+  const droppedItem = dropItem();
+  getDom('boss-drop').innerText = droppedItem ? `Loot: 1x ${droppedItem.name} adicionado à Mochila!` : '';
+  getDom('btn-boss-next').style.display = 'block';
+}
+function skipCapture() { nextFloor(); }
+
+function generateDraft() {
+  const availableDex = new Set(currentRoster().map(r => r[0]));
+  const bases = POKEDEX.filter(p => p.baseForm && !p.legendary && availableDex.has(p.dex));
+  let options = [];
+  while(options.length < 3 && options.length < bases.length) { let rand = bases[rnd(0, bases.length-1)]; if(!options.includes(rand)) options.push(rand); }
+  const draftGrid = getDom('draft-options'); draftGrid.innerHTML = '';
+  options.forEach(opt => {
+    const btn = document.createElement('button'); btn.className = 'draft-card'; btn.style.borderColor = TYPES[opt.type].color;
+    btn.innerHTML = `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${opt.dex}.png"><div style="font-size:9px; font-weight:bold; margin-top:5px;">${opt.name}</div>`;
+    btn.onclick = () => { const newMon = createMon(opt.name, Math.max(1, Math.floor(state.floor * 0.8))); checkEvolution(newMon); addToTeamOrPC(newMon); getDom('draft-section').hidden = true; getDom('btn-next-floor').hidden = false; }; draftGrid.appendChild(btn);
+  });
+  getDom('draft-section').hidden = false; getDom('btn-next-floor').hidden = true;
+}
+
+function addToTeamOrPC(mon) { if(state.party.length < 6) { state.party.push(mon); getDom('btn-next-floor').innerText = `${mon.name} na equipe! AVANÇAR`; } else { state.pc.push(mon); getDom('btn-next-floor').innerText = `${mon.name} foi pro PC. AVANÇAR`; } }
+function finishVictory(){
+ const hist=JSON.parse(localStorage.getItem('pokeTowerHist')||'[]');hist.push({floor:state.floor,money:state.money,team:state.party.map(p=>`Lv${p.level} ${p.name}`).join(', '),result:'VITÓRIA',generation:state.generation,mode:state.mode,cycle:state.cycle});localStorage.setItem('pokeTowerHist',JSON.stringify(hist));
+ getDom('victory-floor').innerText=`${state.floor}/${MAX_FLOORS}`;getDom('victory-money').innerText=state.money;state.inTurn=false;showScreen('screen-win');
+}
+function runTests(){
+  const r=[];const ok=(n,p,d)=>r.push(`<div style="color:${p?'var(--ok)':'var(--bad)'}">${p?'✓':'✗'} ${n} — ${d}</div>`);
+  const b=createMon('Bulbasaur',3);ok('Criação de Pokémon',!!b&&b.hp>0&&b.moves.length>=1,'estado inicial válido');
+  ok('Cálculo de dano',calcDamage(b,createMon('Charmander',3),b.moves[0]).dmg>=1,'dano mínimo garantido');
+  const f=createMon('Charmander',3),g=createMon('Bulbasaur',3);ok('Vantagem de tipo',calcDamage(f,g,{name:'Brasa',type:'FOGO',power:40,effect:null,chance:0}).multiplier===2,'FOGO → GRAMA = 2x');
+  g.status='PSN';const hp=g.hp;handlePostAttack(g);ok('Dano de status',g.hp<hp,'veneno causa dano por turno');
+  ok('IA visual configurada',!!SCENARIOS_PROMPTS.NORMAL&&!!FALLBACK_BG.NORMAL,'prompt + fallback presentes');
+  ok('Fim de sessão',typeof finishVictory==='function'&&typeof checkTeamStatus==='function','vitória e derrota presentes');
+  getDom('test-results').innerHTML='<b style="color:var(--electric)">RESULTADO DOS TESTES</b><br>'+r.join('');
+}
+function nextFloor(){if(state.isBoss&&state.enemy&&state.enemy.hp<=0&&state.floor===MAX_FLOORS){advanceGeneration();return;}state.floor++;getDom('battle-controls').hidden=false;getDom('party-menu').hidden=true;startFloor();}
+
+// --- SISTEMAS DE MOCHILA E LOJA ---
+function openBag(fromScreen) {
+  state.activeScreenBeforeBag = fromScreen;
+  const grid = getDom('bag-items'); grid.innerHTML = '';
+  if (state.bag.length === 0) grid.innerHTML = `<div style="grid-column: span 2; font-size:8px; color:var(--dim);">A mochila está vazia.</div>`;
+  
+  state.bag.forEach((item, i) => {
+    const div = document.createElement('div'); div.className = 'item-card';
+    div.innerHTML = `<div class="item-name">${item.name}</div><div class="item-desc">${item.desc}</div>`;
+    div.onclick = () => {
+      if(item.type === 'sell') { alert("Este item não pode ser usado. Venda-o no Poké Center!"); return; }
+      
+      if(item.type === 'revive') {
+        const deadMon = state.party.find(p => p.hp <= 0);
+        if (!deadMon) { alert("Nenhum Pokémon desmaiado na equipe!"); return; }
+        deadMon.hp = Math.floor(deadMon.maxHp * item.val);
+        deadMon.status = null;
+        state.bag.splice(i, 1);
+        alert(`Você usou ${item.name} e reviveu ${deadMon.name}!`);
+      } else if (item.type === 'cure') {
+        const p = state.party[state.activeIdx];
+        if (p.hp <= 0) { alert("Não funciona em desmaiados!"); return; }
+        if (item.val === 'ALL' || p.status === item.val) {
+          p.status = null; state.bag.splice(i, 1); alert(`${p.name} foi curado de problemas de status!`);
+        } else { alert(`Nenhum efeito em ${p.name}.`); return; }
+      } else {
+        const p = state.party[state.activeIdx];
+        if (p.hp <= 0) { alert("Não pode usar em um Pokémon desmaiado!"); return; }
+        if(item.stat === 'level') { p.level++; p.maxHp+=4; p.hp+=4; p.atk+=2; p.def+=1.5; checkEvolution(p); }
+        else { p[item.stat] += item.val; if(item.stat === 'maxHp') p.hp += item.val; }
+        state.bag.splice(i, 1); alert(`Você usou ${item.name} em ${p.name}!`);
+      }
+      updateUI(); openBag(state.activeScreenBeforeBag);
+    };
+    grid.appendChild(div);
+  });
+  showScreen('screen-bag');
+}
+function closeBag() { showScreen(state.activeScreenBeforeBag === 'battle' ? 'screen-battle' : 'screen-center'); }
+
+function sellTreasures() {
+  const sellables = state.bag.filter(i => i.type === 'sell');
+  if(sellables.length === 0) { alert("Você não tem tesouros para vender."); return; }
+  let profit = 0; sellables.forEach(i => profit += i.val);
+  state.money += profit; state.bag = state.bag.filter(i => i.type !== 'sell');
+  updateHeader(); alert(`Você vendeu seus tesouros por $${profit}!`);
+}
+
+function openPC() { state.selectedPartyIdx = null; state.selectedPcIdx = null; renderPCScreen(); showScreen('screen-pc'); }
+function renderPCScreen() {
+  const pGrid = getDom('pc-party-grid'); pGrid.innerHTML = '';
+  for(let i=0; i<6; i++) {
+    const div = document.createElement('div');
+    if (state.party[i]) { div.className = `party-slot ${state.selectedPartyIdx === i ? 'selected' : ''}`; div.innerHTML = `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${state.party[i].dex}.png"><div class="p-name">${state.party[i].name}</div>`; div.onclick = () => handlePCClick('party', i); } 
+    else { div.className = 'party-slot dead'; div.innerHTML = `<div style="margin-top:20px; font-size:7px;">VAZIO</div>`; } pGrid.appendChild(div);
+  }
+  const bGrid = getDom('pc-box-grid'); bGrid.innerHTML = '';
+  if (state.pc.length === 0) bGrid.innerHTML = `<div style="grid-column: span 4; text-align:center; color:var(--dim); font-size:9px;">PC Vazio</div>`;
+  state.pc.forEach((mon, i) => { const div = document.createElement('div'); div.className = `party-slot ${state.selectedPcIdx === i ? 'selected' : ''}`; div.innerHTML = `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.dex}.png"><div class="p-name">${mon.name}</div>`; div.onclick = () => handlePCClick('pc', i); bGrid.appendChild(div); });
+}
+
+function handlePCClick(type, index) {
+  if (type === 'party') state.selectedPartyIdx = state.selectedPartyIdx === index ? null : index; else state.selectedPcIdx = state.selectedPcIdx === index ? null : index;
+  if (state.selectedPartyIdx !== null && state.selectedPcIdx !== null) {
+    const pMon = state.party[state.selectedPartyIdx]; state.party[state.selectedPartyIdx] = state.pc[state.selectedPcIdx]; state.pc[state.selectedPcIdx] = pMon;
+    state.selectedPartyIdx = null; state.selectedPcIdx = null;
+  }
+  state.activeIdx = 0; renderPCScreen();
+}
+
+function healParty() { 
+  const cost = (state.floor / 5) * 50; 
+  if(state.money >= cost) { 
+    state.money -= cost; 
+    state.party.forEach(p => { p.hp = p.maxHp; p.status = null; }); 
+    state.pc.forEach(p => { p.hp = p.maxHp; p.status = null; }); 
+    updateHeader(); alert("Equipe Curada e Revivida!"); 
+  } else { alert("Dinheiro insuficiente!"); } 
+}
+function updateHeader(){
+ getDom('ui-floor').innerText=`ANDAR ${state.floor}/${MAX_FLOORS}`;
+ getDom('ui-money').innerText=`💰 $${state.money}`;
+ const g=getDom('ui-generation'); if(g) g.innerText=`GERAÇÃO ${state.generation} · ${generationName()}${state.mode==='infinite'?' · INFINITO':''}`;
+}
+
+function updateUI() {
+  const p = state.party[state.activeIdx], e = state.enemy;
+  getDom('p-sprite').src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${p.dex}.png`; getDom('e-sprite').src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${e.dex}.png`;
+  
+  getDom('p-name').innerText = p.name; getDom('p-type').innerText = p.type; getDom('p-type').style.background = TYPES[p.type].color; 
+  
+  if(p.status) { getDom('p-status').innerText = p.status; getDom('p-status').className = `status-badge status-${p.status}`; getDom('p-status').hidden = false; } else { getDom('p-status').hidden = true; }
+  
+  getDom('p-lv').innerText = `Nv ${p.level}`; getDom('p-hp-text').innerText = `${Math.floor(p.hp)}/${Math.floor(p.maxHp)}`; getDom('p-hp-bar').style.width = `${(p.hp / p.maxHp) * 100}%`; getDom('p-exp-bar').style.width = `${(p.exp / p.maxExp) * 100}%`; getDom('p-hp-bar').style.background = (p.hp/p.maxHp) > 0.5 ? 'var(--ok)' : (p.hp/p.maxHp) > 0.2 ? 'var(--electric)' : 'var(--bad)';
+  
+  getDom('e-name').innerText = e.name; getDom('e-type').innerText = e.type; getDom('e-type').style.background = TYPES[e.type].color; 
+  
+  if(e.status) { getDom('e-status').innerText = e.status; getDom('e-status').className = `status-badge status-${e.status}`; getDom('e-status').hidden = false; } else { getDom('e-status').hidden = true; }
+
+  getDom('e-lv').innerText = `Nv ${e.level}`; getDom('e-hp-text').innerText = `${Math.floor(e.hp)}/${Math.floor(e.maxHp)}`; getDom('e-hp-bar').style.width = `${(e.hp / e.maxHp) * 100}%`;
+  
+  getDom('move-controls').innerHTML = p.moves.map((move, index) => `<button class="move-btn" style="border-color:${TYPES[move.type].color}" onclick="attack(${index})"><span style="margin-bottom:4px;">${move.name}</span><span style="font-size:7px; color:${TYPES[move.type].color}">${move.type} | Pwr: ${move.power}</span></button>`).join('');
+}
+</script>
+</body>
+</html>
